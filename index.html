@@ -30,25 +30,21 @@
                 <!-- Séparateur (Masqué lors du vote) -->
                 <div id="main-separator" class="w-full h-px bg-slate-200 mb-8"></div>
 
-                <!-- Vue Vote Success (Épurée et informative) -->
-                <div id="view-vote" class="hidden py-16 text-center animate-in fade-in slide-in-from-top-4 duration-700">
+                <!-- Vue Vote Success (Épurée) -->
+                <div id="view-vote" class="hidden py-20 text-center animate-in fade-in slide-in-from-top-4 duration-700">
                     <div class="inline-flex items-center justify-center w-24 h-24 bg-green-50 text-green-500 rounded-full text-5xl mb-8 shadow-inner">✓</div>
                     
-                    <h2 class="text-3xl font-black text-slate-800 mb-4">Intérêt enregistré !</h2>
+                    <h2 class="text-3xl font-black text-slate-800 mb-8">Intérêt enregistré !</h2>
                     
-                    <div class="bg-slate-50 rounded-2xl p-6 mb-10 max-w-lg mx-auto border border-slate-100">
-                        <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2">Ticket enregistré</p>
-                        <p id="vote-ticket-id" class="text-blue-600 font-mono font-bold mb-1"></p>
-                        <p id="vote-ticket-summary" class="text-slate-700 font-medium italic leading-relaxed"></p>
+                    <div class="bg-slate-50 rounded-2xl p-8 mb-12 max-w-lg mx-auto border border-slate-100 shadow-sm">
+                        <p class="text-xs font-bold text-slate-400 tracking-tight mb-4 italic">Votre intérêt pour le ticket a été enregistré :</p>
+                        <p id="vote-ticket-id" class="text-blue-600 font-mono font-bold text-lg mb-2"></p>
+                        <p id="vote-ticket-summary" class="text-slate-700 font-medium italic leading-relaxed text-sm"></p>
                     </div>
-
-                    <p class="text-slate-400 text-sm mb-8 font-medium">L'équipe agile a bien reçu votre demande de démonstration.</p>
                     
-                    <button onclick="window.close();" class="px-10 py-4 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-2xl hover:bg-slate-800 transition-all active:scale-95">
+                    <button onclick="window.close();" class="px-12 py-5 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-2xl hover:bg-slate-800 transition-all active:scale-95">
                         Fermer cet onglet
                     </button>
-                    
-                    <p class="mt-6 text-[10px] text-slate-300 font-bold uppercase tracking-tight">Le navigateur peut bloquer la fermeture automatique</p>
                 </div>
 
                 <!-- Vue Dashboard -->
