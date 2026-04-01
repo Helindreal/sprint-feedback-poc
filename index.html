@@ -12,12 +12,12 @@
         .fixed-table { table-layout: fixed; }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen p-4 md:p-10 text-slate-900 font-sans flex items-center justify-center">
+<body class="bg-slate-50 min-h-screen p-4 md:p-10 text-slate-900 font-sans flex justify-center">
     <div class="w-full max-w-4xl">
         <div class="bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden">
             
-            <!-- Header Section -->
-            <header class="p-10 pb-6 text-center bg-white">
+            <!-- Header Section (Masqué lors du vote) -->
+            <header id="main-header" class="p-10 pb-6 text-center bg-white">
                 <h1 class="text-4xl font-black text-slate-800 tracking-tight mb-2">
                     Sprint <span class="text-blue-600">Feedback</span>
                 </h1>
@@ -27,15 +27,28 @@
             </header>
 
             <main class="p-8 pt-0">
-                <!-- Séparateur aligné sur la largeur du contenu (Tableau) -->
-                <div class="w-full h-px bg-slate-200 mb-8"></div>
+                <!-- Séparateur (Masqué lors du vote) -->
+                <div id="main-separator" class="w-full h-px bg-slate-200 mb-8"></div>
 
-                <!-- Vue Vote Success -->
-                <div id="view-vote" class="hidden py-12 text-center">
-                    <div class="inline-flex items-center justify-center w-20 h-20 bg-green-100 text-green-600 rounded-full text-4xl mb-6 shadow-inner">✓</div>
-                    <h2 class="text-2xl font-black text-slate-800 mb-3">Intérêt enregistré !</h2>
-                    <p id="vote-detail" class="text-slate-500 max-w-sm mx-auto leading-relaxed font-medium">L'équipe agile a bien reçu votre demande.</p>
-                    <div class="mt-10 inline-block px-8 py-3 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg">Vous pouvez fermer cet onglet</div>
+                <!-- Vue Vote Success (Épurée et informative) -->
+                <div id="view-vote" class="hidden py-16 text-center animate-in fade-in slide-in-from-top-4 duration-700">
+                    <div class="inline-flex items-center justify-center w-24 h-24 bg-green-50 text-green-500 rounded-full text-5xl mb-8 shadow-inner">✓</div>
+                    
+                    <h2 class="text-3xl font-black text-slate-800 mb-4">Intérêt enregistré !</h2>
+                    
+                    <div class="bg-slate-50 rounded-2xl p-6 mb-10 max-w-lg mx-auto border border-slate-100">
+                        <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2">Ticket enregistré</p>
+                        <p id="vote-ticket-id" class="text-blue-600 font-mono font-bold mb-1"></p>
+                        <p id="vote-ticket-summary" class="text-slate-700 font-medium italic leading-relaxed"></p>
+                    </div>
+
+                    <p class="text-slate-400 text-sm mb-8 font-medium">L'équipe agile a bien reçu votre demande de démonstration.</p>
+                    
+                    <button onclick="window.close();" class="px-10 py-4 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-2xl hover:bg-slate-800 transition-all active:scale-95">
+                        Fermer cet onglet
+                    </button>
+                    
+                    <p class="mt-6 text-[10px] text-slate-300 font-bold uppercase tracking-tight">Le navigateur peut bloquer la fermeture automatique</p>
                 </div>
 
                 <!-- Vue Dashboard -->
@@ -57,7 +70,6 @@
                         <table class="w-full text-left border-collapse fixed-table">
                             <thead class="bg-slate-100 border-b border-slate-200">
                                 <tr>
-                                    <!-- Définition des largeurs fixes -->
                                     <th class="w-[20%] px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ticket</th>
                                     <th class="w-[65%] px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Résumé</th>
                                     <th class="w-[15%] px-6 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest">Votes</th>
@@ -115,7 +127,15 @@
         }
 
         async function handleVote() {
+            // On masque l'entête global pour la vue de vote
+            document.getElementById('main-header').classList.add('hidden');
+            document.getElementById('main-separator').classList.add('hidden');
             document.getElementById('view-vote').classList.remove('hidden');
+            
+            // Mise à jour des informations de confirmation
+            document.getElementById('vote-ticket-id').innerText = ticketId;
+            document.getElementById('vote-ticket-summary').innerText = summary || "Sans résumé";
+
             const sprintForThisVote = urlSprint || "Sprint Inconnu";
             const voteRef = doc(db, "votes", ticketId);
             try {
@@ -125,7 +145,6 @@
                 } else {
                     await setDoc(voteRef, { ticket: ticketId, summary: summary || "N/A", sprint: sprintForThisVote, count: 1, lastUpdated: new Date().toISOString() });
                 }
-                document.getElementById('vote-detail').innerHTML = `Votre intérêt pour le ticket <b>${ticketId}</b> a été enregistré.`;
             } catch (e) { console.error(e); }
         }
 
