@@ -3,51 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sprint Feedback - Dashboard</title>
+    <title>Sprint Feedback - Dashboard Interactif</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .loading-dots:after { content: '...'; animation: dots 1.5s steps(5, end) infinite; }
-        @keyframes dots { 0%, 20% { content: ''; } 40% { content: '.'; } 60% { content: '..'; } 80%, 100% { content: '...'; } }
-        /* Force la table à respecter les largeurs de colonnes fixées */
         .fixed-table { table-layout: fixed; }
+        .voted-btn { background-color: #10b981 !important; color: white !important; cursor: default; }
+        .toast-slide { animation: slideIn 0.5s ease-out; }
+        @keyframes slideIn {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen p-4 md:p-10 text-slate-900 font-sans flex justify-center">
     <div class="w-full max-w-4xl">
         <div class="bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden">
             
-            <!-- Header Section (Masqué lors du vote) -->
-            <header id="main-header" class="p-10 pb-6 text-center bg-white">
+            <!-- Bannière de succès -->
+            <div id="vote-success-banner" class="hidden toast-slide bg-green-600 text-white p-4 text-center shadow-lg">
+                <div class="flex items-center justify-center gap-3">
+                    <span class="text-xl">✓</span>
+                    <span class="font-bold uppercase tracking-widest text-xs">
+                        Int&eacute;r&ecirc;t enregistr&eacute; pour <span id="voted-ticket-name" class="underline"></span> !
+                    </span>
+                </div>
+            </div>
+
+            <header class="p-10 pb-6 text-center bg-white">
                 <h1 class="text-4xl font-black text-slate-800 tracking-tight mb-2">
                     Sprint <span class="text-blue-600">Feedback</span>
                 </h1>
                 <div class="space-y-1">
-                    <p id="current-sprint-display" class="text-slate-500 font-bold italic">Chargement du sprint...</p>
+                    <p id="current-sprint-display" class="text-slate-500 font-bold italic">Chargement du dashboard...</p>
                 </div>
             </header>
 
             <main class="p-8 pt-0">
-                <!-- Séparateur (Masqué lors du vote) -->
-                <div id="main-separator" class="w-full h-px bg-slate-200 mb-8"></div>
+                <div class="w-full h-px bg-slate-200 mb-8"></div>
 
-                <!-- Vue Vote Success (Épurée) -->
-                <div id="view-vote" class="hidden py-20 text-center animate-in fade-in slide-in-from-top-4 duration-700">
-                    <div class="inline-flex items-center justify-center w-24 h-24 bg-green-50 text-green-500 rounded-full text-5xl mb-8 shadow-inner">✓</div>
-                    
-                    <h2 class="text-3xl font-black text-slate-800 mb-8">Intérêt enregistré !</h2>
-                    
-                    <div class="bg-slate-50 rounded-2xl p-8 mb-12 max-w-lg mx-auto border border-slate-100 shadow-sm">
-                        <p class="text-xs font-bold text-slate-400 tracking-tight mb-4 italic">Votre intérêt pour le ticket a été enregistré :</p>
-                        <p id="vote-ticket-id" class="text-blue-600 font-mono font-bold text-lg mb-2"></p>
-                        <p id="vote-ticket-summary" class="text-slate-700 font-medium italic leading-relaxed text-sm"></p>
-                    </div>
-                    
-                    <button onclick="window.close();" class="px-12 py-5 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-2xl hover:bg-slate-800 transition-all active:scale-95">
-                        Fermer cet onglet
-                    </button>
-                </div>
-
-                <!-- Vue Dashboard -->
                 <div id="view-dashboard" class="hidden space-y-6">
                     <div class="flex items-center justify-between px-1">
                         <h2 class="text-lg font-bold text-slate-700 flex items-center gap-3">
@@ -56,19 +49,18 @@
                         </h2>
                         
                         <div id="sprint-selector-container" class="hidden">
-                            <select id="sprint-select" class="bg-slate-50 border border-slate-200 text-[11px] font-bold rounded-lg px-3 py-1.5 text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                            <select id="sprint-select" class="bg-slate-50 border border-slate-200 text-[11px] font-bold rounded-lg px-3 py-1.5 text-slate-600 focus:outline-none">
                             </select>
                         </div>
                     </div>
 
-                    <!-- Table avec colonnes figées -->
                     <div id="table-wrapper" class="hidden rounded-xl border border-slate-200 overflow-hidden shadow-sm">
                         <table class="w-full text-left border-collapse fixed-table">
                             <thead class="bg-slate-100 border-b border-slate-200">
                                 <tr>
                                     <th class="w-[20%] px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ticket</th>
-                                    <th class="w-[65%] px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Résumé</th>
-                                    <th class="w-[15%] px-6 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest">Votes</th>
+                                    <th class="w-[60%] px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">R&eacute;sum&eacute;</th>
+                                    <th class="w-[20%] px-6 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="votes-body" class="divide-y divide-slate-100 font-medium text-slate-700">
@@ -103,45 +95,84 @@
         const db = getFirestore(app);
 
         const params = new URLSearchParams(window.location.search);
-        const ticketId = params.get('ticket');
-        const summary = params.get('summary');
+        const ticketIdFromUrl = params.get('ticket');
+        const summaryFromUrl = params.get('summary');
         const urlSprint = params.get('sprint');
         
         let currentSprint = urlSprint ? urlSprint.trim() : null;
         let allData = [];
+        let autoVoted = false;
 
-        async function start() {
-            try {
-                await signInAnonymously(auth);
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        if (ticketId) handleVote();
-                        else handleDashboard();
-                    }
-                });
-            } catch (e) { console.error(e); }
-        }
+        // --- GESTION DU STOCKAGE LOCAL PAR SPRINT ---
+        const getVotedTickets = () => JSON.parse(localStorage.getItem('sprint_votes_v2') || '{}');
+        
+        const markAsVoted = (tid, sprint) => {
+            const voted = getVotedTickets();
+            const key = `${tid}||${sprint}`;
+            voted[key] = true;
+            localStorage.setItem('sprint_votes_v2', JSON.stringify(voted));
+        };
 
-        async function handleVote() {
-            // On masque l'entête global pour la vue de vote
-            document.getElementById('main-header').classList.add('hidden');
-            document.getElementById('main-separator').classList.add('hidden');
-            document.getElementById('view-vote').classList.remove('hidden');
+        const hasVoted = (tid, sprint) => {
+            const voted = getVotedTickets();
+            const key = `${tid}||${sprint}`;
+            return !!voted[key];
+        };
+
+        window.castVote = async (tid, summ) => {
+            const sprintName = currentSprint || "Sprint Inconnu";
             
-            // Mise à jour des informations de confirmation
-            document.getElementById('vote-ticket-id').innerText = ticketId;
-            document.getElementById('vote-ticket-summary').innerText = summary || "Sans résumé";
+            if (hasVoted(tid, sprintName)) return;
 
-            const sprintForThisVote = urlSprint || "Sprint Inconnu";
-            const voteRef = doc(db, "votes", ticketId);
+            const voteRef = doc(db, "votes", tid);
+            
             try {
                 const snap = await getDoc(voteRef);
                 if (snap.exists()) {
-                    await updateDoc(voteRef, { count: increment(1), lastUpdated: new Date().toISOString() });
+                    await updateDoc(voteRef, { 
+                        count: increment(1), 
+                        lastUpdated: new Date().toISOString() 
+                    });
                 } else {
-                    await setDoc(voteRef, { ticket: ticketId, summary: summary || "N/A", sprint: sprintForThisVote, count: 1, lastUpdated: new Date().toISOString() });
+                    await setDoc(voteRef, { 
+                        ticket: tid, 
+                        summary: summ || "N/A", 
+                        sprint: sprintName, 
+                        count: 1, 
+                        lastUpdated: new Date().toISOString() 
+                    });
                 }
-            } catch (e) { console.error(e); }
+                markAsVoted(tid, sprintName);
+                showSuccess(tid);
+                refreshTable(); 
+            } catch (e) { console.error("Firestore Error:", e); }
+        };
+
+        function showSuccess(tid) {
+            const banner = document.getElementById('vote-success-banner');
+            document.getElementById('voted-ticket-name').innerText = tid;
+            banner.classList.remove('hidden');
+            setTimeout(() => banner.classList.add('hidden'), 4000);
+        }
+
+        async function start() {
+            await signInAnonymously(auth);
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    // Logique d'auto-vote via URL
+                    if (ticketIdFromUrl && !autoVoted) {
+                        const sprintForUrl = urlSprint || "Sprint Inconnu";
+                        if (!hasVoted(ticketIdFromUrl, sprintForUrl)) {
+                            autoVoted = true;
+                            await castVote(ticketIdFromUrl, summaryFromUrl);
+                        } else {
+                            // Déjà voté mais on affiche quand même un petit rappel
+                            showSuccess(ticketIdFromUrl);
+                        }
+                    }
+                    handleDashboard();
+                }
+            });
         }
 
         function handleDashboard() {
@@ -161,7 +192,6 @@
 
                 const sortedSprints = Array.from(foundSprints).sort().reverse();
                 if (!currentSprint && sortedSprints.length > 0) currentSprint = sortedSprints[0];
-
                 sprintDisplay.innerText = currentSprint || "Sprint Inconnu";
 
                 if (sortedSprints.length > 1) {
@@ -190,14 +220,20 @@
             } else {
                 noVotes.classList.add('hidden');
                 tableWrapper.classList.remove('hidden');
-                tbody.innerHTML = filtered.map(i => `
-                    <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="px-6 py-5 text-sm font-bold text-blue-600 font-mono break-words" title="${i.ticket}">${i.ticket}</td>
-                        <td class="px-6 py-5 text-sm text-slate-600 truncate" title="${i.summary || 'N/A'}">${i.summary || 'N/A'}</td>
-                        <td class="px-6 py-5 text-center font-bold text-slate-400">
-                            ${i.count}
+                tbody.innerHTML = filtered.map(i => {
+                    const voted = hasVoted(i.ticket, currentSprint);
+                    return `
+                    <tr class="${voted ? 'bg-green-50/40' : 'hover:bg-slate-50'} transition-colors">
+                        <td class="px-6 py-4 text-sm font-bold text-blue-600 font-mono break-words">${i.ticket}</td>
+                        <td class="px-6 py-4 text-sm text-slate-600 leading-tight">${i.summary || 'N/A'}</td>
+                        <td class="px-6 py-4 text-center">
+                            <button onclick="${voted ? '' : `castVote('${i.ticket}', '${(i.summary || "").replace(/'/g, "\\'")}')`}" 
+                                    class="${voted ? 'voted-btn' : 'bg-blue-600 hover:bg-blue-700 active:scale-95'} text-white text-[9px] font-black px-3 py-2 rounded-lg transition-all shadow-md uppercase">
+                                ${voted ? 'D&Eacute;J&Agrave; VOT&Eacute;' : `&Ccedil;A M'INT&Eacute;RESSE (${i.count})`}
+                            </button>
                         </td>
-                    </tr>`).join('');
+                    </tr>`;
+                }).join('');
             }
         }
         start();
