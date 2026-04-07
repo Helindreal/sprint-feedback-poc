@@ -8,20 +8,19 @@
     <style>
         .loading-dots:after { content: '...'; animation: dots 1.5s steps(5, end) infinite; }
         @keyframes dots { 0%, 20% { content: ''; } 40% { content: '.'; } 60% { content: '..'; } 80%, 100% { content: '...'; } }
-        /* Force la table à respecter les largeurs de colonnes fixées */
         .fixed-table { table-layout: fixed; }
-        /* Style pour le bouton après vote */
         .voted-btn { background-color: #10b981 !important; color: white !important; cursor: default; }
-        /* Animation de la bannière de succès */
         .toast-slide { animation: slideIn 0.5s ease-out; }
         @keyframes slideIn { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        /* Style pour les en-têtes de domaines (respiration visuelle) */
+        .domain-header { background: linear-gradient(to right, #f8fafc, #ffffff); }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen p-4 md:p-10 text-slate-900 font-sans flex justify-center">
     <div class="w-full max-w-4xl">
         <div class="bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden">
             
-            <!-- Bannière de succès (S'affiche en haut de la carte lors d'un vote) -->
+            <!-- Bannière de succès -->
             <div id="vote-success-banner" class="hidden toast-slide bg-green-600 text-white p-4 text-center shadow-lg">
                 <span class="font-bold uppercase tracking-widest text-xs italic">
                     ✓ Int&eacute;r&ecirc;t enregistr&eacute; pour <span id="voted-ticket-name"></span> !
@@ -31,23 +30,24 @@
             <!-- Header Section -->
             <header id="main-header" class="p-10 pb-6 text-center bg-white">
                 <h1 class="text-4xl font-black text-slate-800 tracking-tight mb-2">
-                    Sprint <span class="text-blue-600">Feedback</span>
+                    Sprint <span id="title-accent" class="text-blue-600">Feedback</span>
                 </h1>
                 <div class="space-y-1">
                     <p id="current-sprint-display" class="text-slate-500 font-bold italic">Chargement du sprint...</p>
                 </div>
+                <div id="admin-badge" class="hidden mt-2 inline-block bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-widest border border-amber-200">Mode R&eacute;sultats</div>
             </header>
 
             <main class="p-8 pt-0">
                 <!-- Séparateur -->
                 <div id="main-separator" class="w-full h-px bg-slate-200 mb-8"></div>
 
-                <!-- Vue Dashboard (Interactif) -->
+                <!-- Vue Dashboard -->
                 <div id="view-dashboard" class="hidden space-y-6">
                     <div class="flex items-center justify-between px-1">
-                        <h2 class="text-lg font-bold text-slate-700 flex items-center gap-3">
-                            <span class="text-xl">📊</span>
-                            Sujets les plus attendus
+                        <h2 id="view-title" class="text-lg font-bold text-slate-700 flex items-center gap-3">
+                            <span id="view-icon" class="text-xl">🗳️</span>
+                            <span id="view-text">Exprimez votre int&eacute;r&ecirc;t</span>
                         </h2>
                         
                         <div id="sprint-selector-container" class="hidden">
@@ -56,28 +56,31 @@
                         </div>
                     </div>
 
-                    <!-- Table avec colonnes FIGÉES et colonne ACTION -->
                     <div id="table-wrapper" class="hidden rounded-xl border border-slate-200 overflow-hidden shadow-sm">
                         <table class="w-full text-left border-collapse fixed-table">
                             <thead class="bg-slate-100 border-b border-slate-200">
                                 <tr>
-                                    <th class="w-[20%] px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ticket</th>
-                                    <th class="w-[60%] px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">R&eacute;sum&eacute;</th>
-                                    <th class="w-[20%] px-6 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest">Action</th>
+                                    <th class="w-[25%] px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ticket</th>
+                                    <th class="w-[55%] px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">R&eacute;sum&eacute;</th>
+                                    <th id="th-action" class="w-[20%] px-6 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest">Action</th>
                                 </tr>
                             </thead>
-                            <tbody id="votes-body" class="divide-y divide-slate-100 font-medium text-slate-700">
+                            <tbody id="votes-body" class="divide-y divide-slate-100 text-slate-700">
                                 <!-- Rempli dynamiquement -->
                             </tbody>
                         </table>
                     </div>
 
                     <div id="no-votes" class="hidden py-16 text-center">
-                        <p class="text-slate-400 font-medium italic">Aucun vote pour le moment.</p>
+                        <p class="text-slate-400 font-medium italic">Aucun sujet trouv&eacute;.</p>
                     </div>
                 </div>
             </main>
         </div>
+        
+        <footer class="mt-6 text-center">
+            <a id="toggle-view-link" href="#" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-blue-600 transition-colors italic">Passer en vue r&eacute;sultats</a>
+        </footer>
     </div>
 
     <script type="module">
@@ -100,6 +103,7 @@
         const db = getFirestore(app);
 
         const params = new URLSearchParams(window.location.search);
+        const isAdmin = params.get('view') === 'results';
         const ticketIdFromUrl = params.get('ticket');
         const summaryFromUrl = params.get('summary');
         const urlSprint = params.get('sprint');
@@ -108,7 +112,7 @@
         let allData = [];
         let autoVoted = false;
 
-        // --- GESTION DU STOCKAGE LOCAL PAR SPRINT (Protection anti-doublon) ---
+        // --- GESTION DU STOCKAGE LOCAL PAR SPRINT ---
         const getVotedTickets = () => JSON.parse(localStorage.getItem('sprint_votes_v3') || '{}');
         const markAsVoted = (tid, spr) => { 
             const v = getVotedTickets(); 
@@ -116,8 +120,14 @@
             localStorage.setItem('sprint_votes_v3', JSON.stringify(v)); 
         };
         const hasVoted = (tid, spr) => !!getVotedTickets()[`${tid}||${spr}`];
+        
+        const extractDomain = (summary) => {
+            const match = summary.match(/^\[(.*?)\]/);
+            return match ? match[1] : "Autres Domaines";
+        };
 
-        // --- SYNCHRONISATION AUTOMATIQUE (Initialise les tickets à 0 vote) ---
+        // --- ACTIONS ---
+        
         async function handleSync() {
             const initData = params.get('init');
             if (!initData || !currentSprint) return;
@@ -144,25 +154,38 @@
                 await signInAnonymously(auth);
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
-                        // 1. Initialisation des tickets via le paramètre 'init' du mail
                         await handleSync();
-                        
-                        // 2. Vote automatique si on vient d'un lien individuel
+                        setupUI();
                         if (ticketIdFromUrl && !autoVoted && !hasVoted(ticketIdFromUrl, currentSprint)) {
                             autoVoted = true;
                             await castVote(ticketIdFromUrl, summaryFromUrl);
                         } else if (ticketIdFromUrl) {
                             showSuccess(ticketIdFromUrl);
                         }
-
-                        // 3. Lancement de l'affichage
                         handleDashboard();
                     }
                 });
             } catch (e) { console.error(e); }
         }
 
+        function setupUI() {
+            const toggleLink = document.getElementById('toggle-view-link');
+            if (isAdmin) {
+                document.getElementById('admin-badge').classList.remove('hidden');
+                document.getElementById('title-accent').innerText = "Results";
+                document.getElementById('view-icon').innerText = "📈";
+                document.getElementById('view-text').innerText = "Sujets les plus attendus";
+                document.getElementById('th-action').innerText = "Votes";
+                toggleLink.innerText = "Retourner au mode vote";
+                toggleLink.href = window.location.pathname + window.location.search.replace('view=results', '').replace('&&','&').replace('?&','?');
+            } else {
+                const separator = window.location.search ? '&' : '?';
+                toggleLink.href = window.location.href + separator + "view=results";
+            }
+        }
+
         window.castVote = async (tid, summ) => {
+            if (isAdmin) return;
             const sprintName = currentSprint || urlSprint || "Sprint Inconnu";
             if (hasVoted(tid, sprintName)) return;
 
@@ -212,7 +235,7 @@
                     select.innerHTML = sortedSprints.map(s => `<option value="${s}" ${s === currentSprint ? 'selected' : ''}>${s}</option>`).join('');
                 }
                 refreshTable();
-            });
+            }, (err) => console.error("Snapshot error:", err));
 
             select.addEventListener('change', (e) => {
                 currentSprint = e.target.value;
@@ -225,30 +248,64 @@
             const tbody = document.getElementById('votes-body');
             const noVotes = document.getElementById('no-votes');
             const tableWrapper = document.getElementById('table-wrapper');
-            const filtered = allData.filter(v => v.sprint === currentSprint).sort((a,b) => b.count - a.count);
+            let filtered = allData.filter(v => v.sprint === currentSprint);
             
             if (filtered.length === 0) {
                 noVotes.classList.remove('hidden');
                 tableWrapper.classList.add('hidden');
-            } else {
-                noVotes.classList.add('hidden');
-                tableWrapper.classList.remove('hidden');
-                tbody.innerHTML = filtered.map(i => {
-                    const voted = hasVoted(i.ticket, currentSprint);
-                    return `
-                    <tr class="${voted ? 'bg-green-50/40' : 'hover:bg-slate-50'} transition-colors">
-                        <td class="px-6 py-4 text-sm font-bold text-blue-600 font-mono break-words">${i.ticket}</td>
-                        <td class="px-6 py-4 text-sm text-slate-600 italic leading-snug">${i.summary || 'N/A'}</td>
-                        <td class="px-6 py-4 text-center">
-                            <button onclick="${voted ? '' : `castVote('${i.ticket}', '${(i.summary || "").replace(/'/g, "\\'")}')`}" 
-                                    class="${voted ? 'voted-btn' : 'bg-blue-600 hover:bg-blue-700 active:scale-95'} text-white text-[9px] font-black px-3 py-2 rounded-lg transition-all shadow-md uppercase">
-                                ${voted ? 'D&Eacute;J&Agrave; VOT&Eacute;' : `INT&Eacute;RESS&Eacute; (${i.count})`}
-                            </button>
-                        </td>
-                    </tr>`;
-                }).join('');
+                return;
             }
+
+            noVotes.classList.add('hidden');
+            tableWrapper.classList.remove('hidden');
+
+            let html = "";
+            if (isAdmin) {
+                // Vue ADMIN : Tri par popularité décroissante
+                filtered.sort((a,b) => b.count - a.count);
+                html = filtered.map(renderRow).join('');
+            } else {
+                // Vue VOTE : Groupement par Domaine
+                const grouped = {};
+                filtered.forEach(item => {
+                    const domain = extractDomain(item.summary || "");
+                    if (!grouped[domain]) grouped[domain] = [];
+                    grouped[domain].push(item);
+                });
+
+                // --- TRI DES DOMAINES : "Autres Domaines" à la fin ---
+                const sortedDomains = Object.keys(grouped).sort((a, b) => {
+                    if (a === "Autres Domaines") return 1;
+                    if (b === "Autres Domaines") return -1;
+                    return a.localeCompare(b);
+                });
+
+                sortedDomains.forEach(domain => {
+                    html += `<tr class="domain-header"><td colspan="3" class="px-6 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50/70 border-y border-slate-100">${domain}</td></tr>`;
+                    // --- TRI DES TICKETS : Tri numérique intelligent (AFC-2 avant AFC-10) ---
+                    html += grouped[domain].sort((a,b) => a.ticket.localeCompare(b.ticket, undefined, { numeric: true })).map(renderRow).join('');
+                });
+            }
+            tbody.innerHTML = html;
         }
+
+        function renderRow(i) {
+            const voted = hasVoted(i.ticket, currentSprint);
+            const actionContent = isAdmin 
+                ? `<span class="inline-block bg-blue-50 text-blue-700 font-black px-4 py-1.5 rounded-full text-[10px] tracking-tight border border-blue-100">${i.count} vote${i.count > 1 ? 's' : ''}</span>`
+                : `<button onclick="${voted ? '' : `castVote('${i.ticket}', '${(i.summary || "").replace(/'/g, "\\'")}')`}" 
+                        class="${voted ? 'voted-btn' : 'bg-blue-600 hover:bg-blue-700 active:scale-95 shadow-sm'} text-white text-[9px] font-black px-3 py-2 rounded-lg transition-all uppercase tracking-tighter">
+                    ${voted ? 'D&Eacute;J&Agrave; VOT&Eacute;' : 'INT&Eacute;RESS&Eacute;'}
+                   </button>`;
+
+            return `
+            <tr class="${voted && !isAdmin ? 'bg-green-50/20' : 'hover:bg-slate-50/50'} transition-colors">
+                <td class="px-6 py-4 text-[11px] font-bold text-blue-600 font-mono tracking-tighter">${i.ticket}</td>
+                <td class="px-6 py-4 text-xs text-slate-600 font-medium leading-tight">${i.summary || 'N/A'}</td>
+                <td class="px-6 py-4 text-center">${actionContent}</td>
+            </tr>`;
+        }
+
         start();
     </script>
 </body>
