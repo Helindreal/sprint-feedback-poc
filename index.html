@@ -3,44 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sprint Feedback - Dashboard Interactif</title>
+    <title>Sprint Feedback - Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        .loading-dots:after { content: '...'; animation: dots 1.5s steps(5, end) infinite; }
+        @keyframes dots { 0%, 20% { content: ''; } 40% { content: '.'; } 60% { content: '..'; } 80%, 100% { content: '...'; } }
+        /* Force la table à respecter les largeurs de colonnes fixées */
         .fixed-table { table-layout: fixed; }
+        /* Style pour le bouton après vote */
         .voted-btn { background-color: #10b981 !important; color: white !important; cursor: default; }
+        /* Animation de la bannière de succès */
         .toast-slide { animation: slideIn 0.5s ease-out; }
-        @keyframes slideIn {
-            from { transform: translateY(-100%); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
+        @keyframes slideIn { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen p-4 md:p-10 text-slate-900 font-sans flex justify-center">
     <div class="w-full max-w-4xl">
         <div class="bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden">
             
-            <!-- Bannière de succès -->
+            <!-- Bannière de succès (S'affiche en haut de la carte lors d'un vote) -->
             <div id="vote-success-banner" class="hidden toast-slide bg-green-600 text-white p-4 text-center shadow-lg">
-                <div class="flex items-center justify-center gap-3">
-                    <span class="text-xl">✓</span>
-                    <span class="font-bold uppercase tracking-widest text-xs">
-                        Int&eacute;r&ecirc;t enregistr&eacute; pour <span id="voted-ticket-name" class="underline"></span> !
-                    </span>
-                </div>
+                <span class="font-bold uppercase tracking-widest text-xs italic">
+                    ✓ Int&eacute;r&ecirc;t enregistr&eacute; pour <span id="voted-ticket-name"></span> !
+                </span>
             </div>
 
-            <header class="p-10 pb-6 text-center bg-white">
+            <!-- Header Section -->
+            <header id="main-header" class="p-10 pb-6 text-center bg-white">
                 <h1 class="text-4xl font-black text-slate-800 tracking-tight mb-2">
                     Sprint <span class="text-blue-600">Feedback</span>
                 </h1>
                 <div class="space-y-1">
-                    <p id="current-sprint-display" class="text-slate-500 font-bold italic">Chargement du dashboard...</p>
+                    <p id="current-sprint-display" class="text-slate-500 font-bold italic">Chargement du sprint...</p>
                 </div>
             </header>
 
             <main class="p-8 pt-0">
-                <div class="w-full h-px bg-slate-200 mb-8"></div>
+                <!-- Séparateur -->
+                <div id="main-separator" class="w-full h-px bg-slate-200 mb-8"></div>
 
+                <!-- Vue Dashboard (Interactif) -->
                 <div id="view-dashboard" class="hidden space-y-6">
                     <div class="flex items-center justify-between px-1">
                         <h2 class="text-lg font-bold text-slate-700 flex items-center gap-3">
@@ -49,11 +51,12 @@
                         </h2>
                         
                         <div id="sprint-selector-container" class="hidden">
-                            <select id="sprint-select" class="bg-slate-50 border border-slate-200 text-[11px] font-bold rounded-lg px-3 py-1.5 text-slate-600 focus:outline-none">
+                            <select id="sprint-select" class="bg-slate-50 border border-slate-200 text-[11px] font-bold rounded-lg px-3 py-1.5 text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
                             </select>
                         </div>
                     </div>
 
+                    <!-- Table avec colonnes FIGÉES et colonne ACTION -->
                     <div id="table-wrapper" class="hidden rounded-xl border border-slate-200 overflow-hidden shadow-sm">
                         <table class="w-full text-left border-collapse fixed-table">
                             <thead class="bg-slate-100 border-b border-slate-200">
@@ -64,6 +67,7 @@
                                 </tr>
                             </thead>
                             <tbody id="votes-body" class="divide-y divide-slate-100 font-medium text-slate-700">
+                                <!-- Rempli dynamiquement -->
                             </tbody>
                         </table>
                     </div>
@@ -81,6 +85,7 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
+        // Configuration Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyBWMJd9PI6mwwGvCmTAtqE53q7ZrHgt2VE",
             authDomain: "sprint-feedback.firebaseapp.com",
@@ -103,76 +108,84 @@
         let allData = [];
         let autoVoted = false;
 
-        // --- GESTION DU STOCKAGE LOCAL PAR SPRINT ---
-        const getVotedTickets = () => JSON.parse(localStorage.getItem('sprint_votes_v2') || '{}');
-        
-        const markAsVoted = (tid, sprint) => {
-            const voted = getVotedTickets();
-            const key = `${tid}||${sprint}`;
-            voted[key] = true;
-            localStorage.setItem('sprint_votes_v2', JSON.stringify(voted));
+        // --- GESTION DU STOCKAGE LOCAL PAR SPRINT (Protection anti-doublon) ---
+        const getVotedTickets = () => JSON.parse(localStorage.getItem('sprint_votes_v3') || '{}');
+        const markAsVoted = (tid, spr) => { 
+            const v = getVotedTickets(); 
+            v[`${tid}||${spr}`] = true; 
+            localStorage.setItem('sprint_votes_v3', JSON.stringify(v)); 
         };
+        const hasVoted = (tid, spr) => !!getVotedTickets()[`${tid}||${spr}`];
 
-        const hasVoted = (tid, sprint) => {
-            const voted = getVotedTickets();
-            const key = `${tid}||${sprint}`;
-            return !!voted[key];
-        };
-
-        window.castVote = async (tid, summ) => {
-            const sprintName = currentSprint || "Sprint Inconnu";
-            
-            if (hasVoted(tid, sprintName)) return;
-
-            const voteRef = doc(db, "votes", tid);
-            
-            try {
-                const snap = await getDoc(voteRef);
-                if (snap.exists()) {
-                    await updateDoc(voteRef, { 
-                        count: increment(1), 
-                        lastUpdated: new Date().toISOString() 
-                    });
-                } else {
-                    await setDoc(voteRef, { 
+        // --- SYNCHRONISATION AUTOMATIQUE (Initialise les tickets à 0 vote) ---
+        async function handleSync() {
+            const initData = params.get('init');
+            if (!initData || !currentSprint) return;
+            const tickets = initData.split('|');
+            for (const item of tickets) {
+                const [tid, ...summParts] = item.split(':');
+                const summ = summParts.join(':');
+                const ref = doc(db, "votes", tid);
+                const snap = await getDoc(ref);
+                if (!snap.exists()) {
+                    await setDoc(ref, { 
                         ticket: tid, 
-                        summary: summ || "N/A", 
-                        sprint: sprintName, 
-                        count: 1, 
+                        summary: summ, 
+                        sprint: currentSprint, 
+                        count: 0, 
                         lastUpdated: new Date().toISOString() 
                     });
                 }
-                markAsVoted(tid, sprintName);
-                showSuccess(tid);
-                refreshTable(); 
-            } catch (e) { console.error("Firestore Error:", e); }
-        };
-
-        function showSuccess(tid) {
-            const banner = document.getElementById('vote-success-banner');
-            document.getElementById('voted-ticket-name').innerText = tid;
-            banner.classList.remove('hidden');
-            setTimeout(() => banner.classList.add('hidden'), 4000);
+            }
         }
 
         async function start() {
-            await signInAnonymously(auth);
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    // Logique d'auto-vote via URL
-                    if (ticketIdFromUrl && !autoVoted) {
-                        const sprintForUrl = urlSprint || "Sprint Inconnu";
-                        if (!hasVoted(ticketIdFromUrl, sprintForUrl)) {
+            try {
+                await signInAnonymously(auth);
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        // 1. Initialisation des tickets via le paramètre 'init' du mail
+                        await handleSync();
+                        
+                        // 2. Vote automatique si on vient d'un lien individuel
+                        if (ticketIdFromUrl && !autoVoted && !hasVoted(ticketIdFromUrl, currentSprint)) {
                             autoVoted = true;
                             await castVote(ticketIdFromUrl, summaryFromUrl);
-                        } else {
-                            // Déjà voté mais on affiche quand même un petit rappel
+                        } else if (ticketIdFromUrl) {
                             showSuccess(ticketIdFromUrl);
                         }
+
+                        // 3. Lancement de l'affichage
+                        handleDashboard();
                     }
-                    handleDashboard();
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        window.castVote = async (tid, summ) => {
+            const sprintName = currentSprint || urlSprint || "Sprint Inconnu";
+            if (hasVoted(tid, sprintName)) return;
+
+            const voteRef = doc(db, "votes", tid);
+            try {
+                const snap = await getDoc(voteRef);
+                if (snap.exists()) {
+                    await updateDoc(voteRef, { count: increment(1), lastUpdated: new Date().toISOString() });
+                } else {
+                    await setDoc(voteRef, { ticket: tid, summary: summ || "N/A", sprint: sprintName, count: 1, lastUpdated: new Date().toISOString() });
                 }
-            });
+                markAsVoted(tid, sprintName);
+                showSuccess(tid);
+                refreshTable();
+            } catch (e) { console.error(e); }
+        }
+
+        function showSuccess(tid) {
+            const banner = document.getElementById('vote-success-banner');
+            const nameEl = document.getElementById('voted-ticket-name');
+            if (nameEl) nameEl.innerText = tid;
+            banner.classList.remove('hidden');
+            setTimeout(() => banner.classList.add('hidden'), 5000);
         }
 
         function handleDashboard() {
@@ -225,11 +238,11 @@
                     return `
                     <tr class="${voted ? 'bg-green-50/40' : 'hover:bg-slate-50'} transition-colors">
                         <td class="px-6 py-4 text-sm font-bold text-blue-600 font-mono break-words">${i.ticket}</td>
-                        <td class="px-6 py-4 text-sm text-slate-600 leading-tight">${i.summary || 'N/A'}</td>
+                        <td class="px-6 py-4 text-sm text-slate-600 italic leading-snug">${i.summary || 'N/A'}</td>
                         <td class="px-6 py-4 text-center">
                             <button onclick="${voted ? '' : `castVote('${i.ticket}', '${(i.summary || "").replace(/'/g, "\\'")}')`}" 
                                     class="${voted ? 'voted-btn' : 'bg-blue-600 hover:bg-blue-700 active:scale-95'} text-white text-[9px] font-black px-3 py-2 rounded-lg transition-all shadow-md uppercase">
-                                ${voted ? 'D&Eacute;J&Agrave; VOT&Eacute;' : `&Ccedil;A M'INT&Eacute;RESSE (${i.count})`}
+                                ${voted ? 'D&Eacute;J&Agrave; VOT&Eacute;' : `INT&Eacute;RESS&Eacute; (${i.count})`}
                             </button>
                         </td>
                     </tr>`;
