@@ -15,9 +15,9 @@
         .domain-header { background: linear-gradient(to right, #edf2f7, #f8fafc); }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen p-4 md:p-10 text-slate-900 font-sans flex justify-center border-t-4 border-blue-600">
-    <div id="app-container" class="w-full max-w-4xl opacity-0 transition-opacity duration-500">
-        <div class="bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden">
+<body class="bg-white min-h-screen p-4 md:p-10 text-slate-900 font-sans flex justify-center border-t-4 border-blue-600">
+    <div id="app-container" class="w-full max-w-5xl opacity-0 transition-opacity duration-500">
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
             
             <div id="vote-success-banner" class="hidden toast-slide bg-green-600 text-white p-4 text-center shadow-lg">
                 <span class="font-bold uppercase tracking-widest text-xs italic">
@@ -51,12 +51,13 @@
                         </div>
                     </div>
 
-                    <div id="table-wrapper" class="hidden rounded-xl border border-slate-200 overflow-hidden shadow-md">
+                    <div id="table-wrapper" class="hidden rounded-xl border border-slate-200 overflow-hidden shadow-sm">
                         <table class="w-full text-left border-collapse fixed-table">
-                            <thead class="bg-slate-100 border-b border-slate-200">
+                            <thead class="bg-slate-50 border-b border-slate-200">
                                 <tr>
-                                    <th class="w-[20%] px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ticket</th>
-                                    <th class="w-[60%] px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">R&eacute;sum&eacute;</th>
+                                    <th class="w-[15%] px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ticket</th>
+                                    <th class="w-[20%] px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Epic</th>
+                                    <th class="w-[45%] px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">R&eacute;sum&eacute;</th>
                                     <th id="th-action" class="w-[20%] px-6 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest">Action</th>
                                 </tr>
                             </thead>
@@ -97,32 +98,34 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const params = new URLSearchParams(window.location.search);
+        const urlObj = new URL(window.location.href);
+        const params = urlObj.searchParams;
         
         const ADMIN_PASSWORD = "admin123"; 
         let isAdmin = false;
+        let adminValidated = false; // Verrou pour éviter la double demande
 
-        function checkAdminAccess(silent = false) {
-            if (params.get('view') === 'results') {
-                const entry = silent ? ADMIN_PASSWORD : prompt("Accès restreint. Veuillez saisir le mot de passe équipe :");
-                if (entry === ADMIN_PASSWORD) {
-                    isAdmin = true;
-                    return true;
-                } else {
-                    if (!silent) alert("Mot de passe incorrect.");
-                    window.location.href = window.location.pathname + window.location.search.replace('view=results', '').replace('&&','&').replace('?&','?');
-                    return false;
-                }
+        function validateAdminAccess() {
+            if (adminValidated) return true;
+            const entry = prompt("Accès restreint. Veuillez saisir le mot de passe équipe :");
+            if (entry === ADMIN_PASSWORD) {
+                adminValidated = true;
+                isAdmin = true;
+                return true;
+            } else {
+                alert("Mot de passe incorrect.");
+                // Nettoyage propre de l'URL
+                urlObj.searchParams.delete('view');
+                window.location.href = urlObj.pathname + urlObj.search;
+                return false;
             }
-            return false;
         }
 
         if (params.get('view') === 'results') {
-            checkAdminAccess();
+            validateAdminAccess();
         }
 
         const ticketIdFromUrl = params.get('ticket');
-        const summaryFromUrl = params.get('summary');
         const urlSprint = params.get('sprint');
         
         let currentSprint = urlSprint ? urlSprint.trim() : null;
@@ -142,33 +145,15 @@
             return match ? match[1] : "Autres Domaines";
         };
 
-        async function handleSync() {
-            const initData = params.get('init');
-            if (!initData || !currentSprint) return;
-            const tickets = initData.split('|');
-            for (const item of tickets) {
-                const [tid, ...summParts] = item.split(':');
-                const summ = summParts.join(':');
-                const ref = doc(db, "votes", tid);
-                const snap = await getDoc(ref);
-                if (!snap.exists()) {
-                    await setDoc(ref, { 
-                        ticket: tid, summary: summ, sprint: currentSprint, count: 0, lastUpdated: new Date().toISOString() 
-                    });
-                }
-            }
-        }
-
         async function start() {
             try {
                 await signInAnonymously(auth);
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
-                        await handleSync();
                         setupUI();
                         if (ticketIdFromUrl && !autoVoted && !hasVoted(ticketIdFromUrl, currentSprint)) {
                             autoVoted = true;
-                            await castVote(ticketIdFromUrl, summaryFromUrl);
+                            await castVote(ticketIdFromUrl);
                         } else if (ticketIdFromUrl) {
                             showSuccess(ticketIdFromUrl);
                         }
@@ -188,24 +173,22 @@
                 document.getElementById('th-action').innerText = "Votes";
                 trigger.innerText = "↩ Revenir au mode vote";
                 trigger.onclick = () => {
-                    window.location.href = window.location.pathname + window.location.search.replace('view=results', '').replace('&&','&').replace('?&','?');
+                    urlObj.searchParams.delete('view');
+                    window.location.href = urlObj.pathname + urlObj.search;
                 };
             } else {
                 trigger.onclick = () => {
-                    const entry = prompt("Saisir le mot de passe équipe :");
-                    if (entry === ADMIN_PASSWORD) {
-                        const separator = window.location.search ? '&' : '?';
-                        window.location.href = window.location.href + separator + "view=results";
-                    } else if (entry !== null) {
-                        alert("Accès refusé.");
+                    if (validateAdminAccess()) {
+                        urlObj.searchParams.set('view', 'results');
+                        window.location.href = urlObj.pathname + urlObj.search;
                     }
                 };
             }
         }
 
-        window.castVote = async (tid, summ) => {
+        window.castVote = async (tid) => {
             if (isAdmin) return;
-            const sprintName = currentSprint || urlSprint || "Sprint Inconnu";
+            const sprintName = currentSprint || "Sprint Inconnu";
             if (hasVoted(tid, sprintName)) return;
 
             const voteRef = doc(db, "votes", tid);
@@ -214,7 +197,8 @@
                 if (snap.exists()) {
                     await updateDoc(voteRef, { count: increment(1), lastUpdated: new Date().toISOString() });
                 } else {
-                    await setDoc(voteRef, { ticket: tid, summary: summ || "N/A", sprint: sprintName, count: 1, lastUpdated: new Date().toISOString() });
+                    // Fallback si l'init n'est pas passé
+                    await setDoc(voteRef, { ticket: tid, summary: "N/A", epic: "N/A", sprint: sprintName, count: 1, lastUpdated: new Date().toISOString() });
                 }
                 markAsVoted(tid, sprintName);
                 showSuccess(tid);
@@ -297,7 +281,7 @@
                 });
 
                 sortedDomains.forEach(domain => {
-                    html += `<tr class="domain-header"><td colspan="3" class="px-6 py-2 text-[11px] font-black text-slate-600 uppercase tracking-[0.1em] border-y border-slate-200">${domain}</td></tr>`;
+                    html += `<tr class="domain-header"><td colspan="4" class="px-6 py-2 text-[11px] font-black text-slate-600 uppercase tracking-wider border-y border-slate-200">${domain}</td></tr>`;
                     html += grouped[domain].sort((a,b) => a.ticket.localeCompare(b.ticket, undefined, { numeric: true })).map(renderRow).join('');
                 });
             }
@@ -308,7 +292,7 @@
             const voted = hasVoted(i.ticket, currentSprint);
             const actionContent = isAdmin 
                 ? `<span class="inline-block bg-blue-100 text-blue-700 font-black px-4 py-2 rounded-full text-xs border border-blue-200 shadow-sm">${i.count} vote${i.count > 1 ? 's' : ''}</span>`
-                : `<button onclick="${voted ? '' : `castVote('${i.ticket}', '${(i.summary || "").replace(/'/g, "\\'")}')`}" 
+                : `<button onclick="${voted ? '' : `castVote('${i.ticket}')`}" 
                         class="${voted ? 'voted-btn' : 'bg-blue-600 hover:bg-blue-700 active:scale-95 shadow-md'} text-white text-[9px] font-black px-3 py-2 rounded-lg transition-all uppercase tracking-tight">
                     ${voted ? 'D&Eacute;J&Agrave; VOT&Eacute;' : 'INT&Eacute;RESS&Eacute;'}
                    </button>`;
@@ -316,6 +300,7 @@
             return `
             <tr class="${voted && !isAdmin ? 'bg-green-50/30' : 'hover:bg-slate-50/50'} transition-colors">
                 <td class="px-6 py-6 text-[13px] font-bold text-blue-600 font-mono tracking-tighter border-r border-slate-50">${i.ticket}</td>
+                <td class="px-6 py-6 text-[13px] text-slate-500 italic">${i.epic || 'Sans Epic'}</td>
                 <td class="px-6 py-6 text-sm text-slate-700 font-medium leading-relaxed">${i.summary || 'N/A'}</td>
                 <td class="px-6 py-6 text-center">${actionContent}</td>
             </tr>`;
