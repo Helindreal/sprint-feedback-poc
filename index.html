@@ -12,25 +12,22 @@
         .voted-btn { background-color: #10b981 !important; color: white !important; cursor: default; }
         .toast-slide { animation: slideIn 0.5s ease-out; }
         @keyframes slideIn { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        /* Style pour les en-têtes de domaines (respiration visuelle) */
         .domain-header { background: linear-gradient(to right, #f8fafc, #ffffff); }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen p-4 md:p-10 text-slate-900 font-sans flex justify-center">
-    <div class="w-full max-w-4xl">
+    <div id="app-container" class="w-full max-w-4xl opacity-0 transition-opacity duration-500">
         <div class="bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden">
             
-            <!-- Bannière de succès -->
             <div id="vote-success-banner" class="hidden toast-slide bg-green-600 text-white p-4 text-center shadow-lg">
                 <span class="font-bold uppercase tracking-widest text-xs italic">
                     ✓ Int&eacute;r&ecirc;t enregistr&eacute; pour <span id="voted-ticket-name"></span> !
                 </span>
             </div>
 
-            <!-- Header Section -->
             <header id="main-header" class="p-10 pb-6 text-center bg-white">
                 <h1 class="text-4xl font-black text-slate-800 tracking-tight mb-2">
-                    Sprint <span id="title-accent" class="text-blue-600">Feedback</span>
+                    Sprint <span class="text-blue-600">Feedback</span>
                 </h1>
                 <div class="space-y-1">
                     <p id="current-sprint-display" class="text-slate-500 font-bold italic">Chargement du sprint...</p>
@@ -39,10 +36,8 @@
             </header>
 
             <main class="p-8 pt-0">
-                <!-- Séparateur -->
                 <div id="main-separator" class="w-full h-px bg-slate-200 mb-8"></div>
 
-                <!-- Vue Dashboard -->
                 <div id="view-dashboard" class="hidden space-y-6">
                     <div class="flex items-center justify-between px-1">
                         <h2 id="view-title" class="text-lg font-bold text-slate-700 flex items-center gap-3">
@@ -66,7 +61,6 @@
                                 </tr>
                             </thead>
                             <tbody id="votes-body" class="divide-y divide-slate-100 text-slate-700">
-                                <!-- Rempli dynamiquement -->
                             </tbody>
                         </table>
                     </div>
@@ -78,8 +72,11 @@
             </main>
         </div>
         
+        <!-- Footer discret avec lien "caché" pour l'équipe -->
         <footer class="mt-6 text-center">
-            <a id="toggle-view-link" href="#" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-blue-600 transition-colors italic">Passer en vue r&eacute;sultats</a>
+            <button id="admin-trigger" class="text-[9px] text-slate-300 hover:text-slate-400 transition-colors uppercase tracking-[0.2em] font-medium">
+                &bull; Acc&egrave;s &Eacute;quipe &bull;
+            </button>
         </footer>
     </div>
 
@@ -88,7 +85,6 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-        // Configuration Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyBWMJd9PI6mwwGvCmTAtqE53q7ZrHgt2VE",
             authDomain: "sprint-feedback.firebaseapp.com",
@@ -103,7 +99,31 @@
         const db = getFirestore(app);
 
         const params = new URLSearchParams(window.location.search);
-        const isAdmin = params.get('view') === 'results';
+        
+        // --- SÉCURITÉ VUE RÉSULTATS ---
+        const ADMIN_PASSWORD = "admin123"; 
+        let isAdmin = false;
+
+        function checkAdminAccess(silent = false) {
+            if (params.get('view') === 'results') {
+                const entry = silent ? ADMIN_PASSWORD : prompt("Accès restreint. Veuillez saisir le mot de passe équipe :");
+                if (entry === ADMIN_PASSWORD) {
+                    isAdmin = true;
+                    return true;
+                } else {
+                    if (!silent) alert("Mot de passe incorrect.");
+                    window.location.href = window.location.pathname + window.location.search.replace('view=results', '').replace('&&','&').replace('?&','?');
+                    return false;
+                }
+            }
+            return false;
+        }
+
+        // Vérification initiale (sans prompt si l'URL n'a pas le paramètre)
+        if (params.get('view') === 'results') {
+            checkAdminAccess();
+        }
+
         const ticketIdFromUrl = params.get('ticket');
         const summaryFromUrl = params.get('summary');
         const urlSprint = params.get('sprint');
@@ -112,7 +132,6 @@
         let allData = [];
         let autoVoted = false;
 
-        // --- GESTION DU STOCKAGE LOCAL PAR SPRINT ---
         const getVotedTickets = () => JSON.parse(localStorage.getItem('sprint_votes_v3') || '{}');
         const markAsVoted = (tid, spr) => { 
             const v = getVotedTickets(); 
@@ -126,8 +145,6 @@
             return match ? match[1] : "Autres Domaines";
         };
 
-        // --- ACTIONS ---
-        
         async function handleSync() {
             const initData = params.get('init');
             if (!initData || !currentSprint) return;
@@ -139,11 +156,7 @@
                 const snap = await getDoc(ref);
                 if (!snap.exists()) {
                     await setDoc(ref, { 
-                        ticket: tid, 
-                        summary: summ, 
-                        sprint: currentSprint, 
-                        count: 0, 
-                        lastUpdated: new Date().toISOString() 
+                        ticket: tid, summary: summ, sprint: currentSprint, count: 0, lastUpdated: new Date().toISOString() 
                     });
                 }
             }
@@ -163,24 +176,35 @@
                             showSuccess(ticketIdFromUrl);
                         }
                         handleDashboard();
+                        document.getElementById('app-container').classList.remove('opacity-0');
                     }
                 });
             } catch (e) { console.error(e); }
         }
 
         function setupUI() {
-            const toggleLink = document.getElementById('toggle-view-link');
+            const trigger = document.getElementById('admin-trigger');
             if (isAdmin) {
                 document.getElementById('admin-badge').classList.remove('hidden');
-                document.getElementById('title-accent').innerText = "Results";
                 document.getElementById('view-icon').innerText = "📈";
                 document.getElementById('view-text').innerText = "Sujets les plus attendus";
                 document.getElementById('th-action').innerText = "Votes";
-                toggleLink.innerText = "Retourner au mode vote";
-                toggleLink.href = window.location.pathname + window.location.search.replace('view=results', '').replace('&&','&').replace('?&','?');
+                // En mode admin, le bouton de pied de page permet de revenir au mode vote
+                trigger.innerText = "↩ Revenir au mode vote";
+                trigger.onclick = () => {
+                    window.location.href = window.location.pathname + window.location.search.replace('view=results', '').replace('&&','&').replace('?&','?');
+                };
             } else {
-                const separator = window.location.search ? '&' : '?';
-                toggleLink.href = window.location.href + separator + "view=results";
+                // En mode vote, le bouton discret demande le mot de passe pour passer en admin
+                trigger.onclick = () => {
+                    const entry = prompt("Saisir le mot de passe équipe :");
+                    if (entry === ADMIN_PASSWORD) {
+                        const separator = window.location.search ? '&' : '?';
+                        window.location.href = window.location.href + separator + "view=results";
+                    } else if (entry !== null) {
+                        alert("Accès refusé.");
+                    }
+                };
             }
         }
 
@@ -261,11 +285,9 @@
 
             let html = "";
             if (isAdmin) {
-                // Vue ADMIN : Tri par popularité décroissante
                 filtered.sort((a,b) => b.count - a.count);
                 html = filtered.map(renderRow).join('');
             } else {
-                // Vue VOTE : Groupement par Domaine
                 const grouped = {};
                 filtered.forEach(item => {
                     const domain = extractDomain(item.summary || "");
@@ -273,7 +295,6 @@
                     grouped[domain].push(item);
                 });
 
-                // --- TRI DES DOMAINES : "Autres Domaines" à la fin ---
                 const sortedDomains = Object.keys(grouped).sort((a, b) => {
                     if (a === "Autres Domaines") return 1;
                     if (b === "Autres Domaines") return -1;
@@ -282,7 +303,6 @@
 
                 sortedDomains.forEach(domain => {
                     html += `<tr class="domain-header"><td colspan="3" class="px-6 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50/70 border-y border-slate-100">${domain}</td></tr>`;
-                    // --- TRI DES TICKETS : Tri numérique intelligent (AFC-2 avant AFC-10) ---
                     html += grouped[domain].sort((a,b) => a.ticket.localeCompare(b.ticket, undefined, { numeric: true })).map(renderRow).join('');
                 });
             }
