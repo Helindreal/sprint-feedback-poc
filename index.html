@@ -12,12 +12,12 @@
         .voted-btn { background-color: #10b981 !important; color: white !important; cursor: default; }
         .toast-slide { animation: slideIn 0.5s ease-out; }
         @keyframes slideIn { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .domain-header { background: linear-gradient(to right, #f8fafc, #ffffff); }
+        .domain-header { background: linear-gradient(to right, #edf2f7, #f8fafc); }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen p-4 md:p-10 text-slate-900 font-sans flex justify-center">
+<body class="bg-slate-50 min-h-screen p-4 md:p-10 text-slate-900 font-sans flex justify-center border-t-4 border-blue-600">
     <div id="app-container" class="w-full max-w-4xl opacity-0 transition-opacity duration-500">
-        <div class="bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden">
+        <div class="bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden">
             
             <div id="vote-success-banner" class="hidden toast-slide bg-green-600 text-white p-4 text-center shadow-lg">
                 <span class="font-bold uppercase tracking-widest text-xs italic">
@@ -30,7 +30,7 @@
                     Sprint <span class="text-blue-600">Feedback</span>
                 </h1>
                 <div class="space-y-1">
-                    <p id="current-sprint-display" class="text-slate-500 font-bold italic">Chargement du sprint...</p>
+                    <p id="current-sprint-display" class="text-slate-500 font-bold text-lg italic">Chargement du sprint...</p>
                 </div>
                 <div id="admin-badge" class="hidden mt-2 inline-block bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-widest border border-amber-200">Mode R&eacute;sultats</div>
             </header>
@@ -40,23 +40,23 @@
 
                 <div id="view-dashboard" class="hidden space-y-6">
                     <div class="flex items-center justify-between px-1">
-                        <h2 id="view-title" class="text-lg font-bold text-slate-700 flex items-center gap-3">
-                            <span id="view-icon" class="text-xl">🗳️</span>
+                        <h2 id="view-title" class="text-xl font-bold text-slate-700 flex items-center gap-3">
+                            <span id="view-icon" class="text-2xl">🗳️</span>
                             <span id="view-text">Exprimez votre int&eacute;r&ecirc;t</span>
                         </h2>
                         
                         <div id="sprint-selector-container" class="hidden">
-                            <select id="sprint-select" class="bg-slate-50 border border-slate-200 text-[11px] font-bold rounded-lg px-3 py-1.5 text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                            <select id="sprint-select" class="bg-slate-50 border border-slate-300 text-[12px] font-bold rounded-lg px-3 py-2 text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 shadow-sm">
                             </select>
                         </div>
                     </div>
 
-                    <div id="table-wrapper" class="hidden rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                    <div id="table-wrapper" class="hidden rounded-xl border border-slate-200 overflow-hidden shadow-md">
                         <table class="w-full text-left border-collapse fixed-table">
                             <thead class="bg-slate-100 border-b border-slate-200">
                                 <tr>
-                                    <th class="w-[25%] px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ticket</th>
-                                    <th class="w-[55%] px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">R&eacute;sum&eacute;</th>
+                                    <th class="w-[20%] px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ticket</th>
+                                    <th class="w-[60%] px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">R&eacute;sum&eacute;</th>
                                     <th id="th-action" class="w-[20%] px-6 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest">Action</th>
                                 </tr>
                             </thead>
@@ -66,15 +66,14 @@
                     </div>
 
                     <div id="no-votes" class="hidden py-16 text-center">
-                        <p class="text-slate-400 font-medium italic">Aucun sujet trouv&eacute;.</p>
+                        <p class="text-slate-400 font-medium italic text-lg">Aucun sujet trouv&eacute;.</p>
                     </div>
                 </div>
             </main>
         </div>
         
-        <!-- Footer discret avec lien "caché" pour l'équipe -->
-        <footer class="mt-6 text-center">
-            <button id="admin-trigger" class="text-[9px] text-slate-300 hover:text-slate-400 transition-colors uppercase tracking-[0.2em] font-medium">
+        <footer class="mt-8 text-center pb-10">
+            <button id="admin-trigger" class="text-[10px] text-slate-300 hover:text-slate-500 transition-colors uppercase tracking-[0.25em] font-bold">
                 &bull; Acc&egrave;s &Eacute;quipe &bull;
             </button>
         </footer>
@@ -100,7 +99,6 @@
 
         const params = new URLSearchParams(window.location.search);
         
-        // --- SÉCURITÉ VUE RÉSULTATS ---
         const ADMIN_PASSWORD = "admin123"; 
         let isAdmin = false;
 
@@ -119,7 +117,6 @@
             return false;
         }
 
-        // Vérification initiale (sans prompt si l'URL n'a pas le paramètre)
         if (params.get('view') === 'results') {
             checkAdminAccess();
         }
@@ -189,13 +186,11 @@
                 document.getElementById('view-icon').innerText = "📈";
                 document.getElementById('view-text').innerText = "Sujets les plus attendus";
                 document.getElementById('th-action').innerText = "Votes";
-                // En mode admin, le bouton de pied de page permet de revenir au mode vote
                 trigger.innerText = "↩ Revenir au mode vote";
                 trigger.onclick = () => {
                     window.location.href = window.location.pathname + window.location.search.replace('view=results', '').replace('&&','&').replace('?&','?');
                 };
             } else {
-                // En mode vote, le bouton discret demande le mot de passe pour passer en admin
                 trigger.onclick = () => {
                     const entry = prompt("Saisir le mot de passe équipe :");
                     if (entry === ADMIN_PASSWORD) {
@@ -254,7 +249,7 @@
                 if (!currentSprint && sortedSprints.length > 0) currentSprint = sortedSprints[0];
                 sprintDisplay.innerText = currentSprint || "Sprint Inconnu";
 
-                if (sortedSprints.length > 1) {
+                if (sortedSprints.length > 1 && isAdmin) {
                     selectorContainer.classList.remove('hidden');
                     select.innerHTML = sortedSprints.map(s => `<option value="${s}" ${s === currentSprint ? 'selected' : ''}>${s}</option>`).join('');
                 }
@@ -302,7 +297,7 @@
                 });
 
                 sortedDomains.forEach(domain => {
-                    html += `<tr class="domain-header"><td colspan="3" class="px-6 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50/70 border-y border-slate-100">${domain}</td></tr>`;
+                    html += `<tr class="domain-header"><td colspan="3" class="px-6 py-2 text-[11px] font-black text-slate-600 uppercase tracking-[0.1em] border-y border-slate-200">${domain}</td></tr>`;
                     html += grouped[domain].sort((a,b) => a.ticket.localeCompare(b.ticket, undefined, { numeric: true })).map(renderRow).join('');
                 });
             }
@@ -312,17 +307,17 @@
         function renderRow(i) {
             const voted = hasVoted(i.ticket, currentSprint);
             const actionContent = isAdmin 
-                ? `<span class="inline-block bg-blue-50 text-blue-700 font-black px-4 py-1.5 rounded-full text-[10px] tracking-tight border border-blue-100">${i.count} vote${i.count > 1 ? 's' : ''}</span>`
+                ? `<span class="inline-block bg-blue-100 text-blue-700 font-black px-4 py-2 rounded-full text-xs border border-blue-200 shadow-sm">${i.count} vote${i.count > 1 ? 's' : ''}</span>`
                 : `<button onclick="${voted ? '' : `castVote('${i.ticket}', '${(i.summary || "").replace(/'/g, "\\'")}')`}" 
-                        class="${voted ? 'voted-btn' : 'bg-blue-600 hover:bg-blue-700 active:scale-95 shadow-sm'} text-white text-[9px] font-black px-3 py-2 rounded-lg transition-all uppercase tracking-tighter">
+                        class="${voted ? 'voted-btn' : 'bg-blue-600 hover:bg-blue-700 active:scale-95 shadow-md'} text-white text-[9px] font-black px-3 py-2 rounded-lg transition-all uppercase tracking-tight">
                     ${voted ? 'D&Eacute;J&Agrave; VOT&Eacute;' : 'INT&Eacute;RESS&Eacute;'}
                    </button>`;
 
             return `
-            <tr class="${voted && !isAdmin ? 'bg-green-50/20' : 'hover:bg-slate-50/50'} transition-colors">
-                <td class="px-6 py-4 text-[11px] font-bold text-blue-600 font-mono tracking-tighter">${i.ticket}</td>
-                <td class="px-6 py-4 text-xs text-slate-600 font-medium leading-tight">${i.summary || 'N/A'}</td>
-                <td class="px-6 py-4 text-center">${actionContent}</td>
+            <tr class="${voted && !isAdmin ? 'bg-green-50/30' : 'hover:bg-slate-50/50'} transition-colors">
+                <td class="px-6 py-6 text-[13px] font-bold text-blue-600 font-mono tracking-tighter border-r border-slate-50">${i.ticket}</td>
+                <td class="px-6 py-6 text-sm text-slate-700 font-medium leading-relaxed">${i.summary || 'N/A'}</td>
+                <td class="px-6 py-6 text-center">${actionContent}</td>
             </tr>`;
         }
 
