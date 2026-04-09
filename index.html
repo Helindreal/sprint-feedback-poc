@@ -53,7 +53,7 @@
 
                     <div id="table-wrapper" class="hidden rounded-xl border border-slate-200 overflow-hidden shadow-sm">
                         <table class="w-full text-left border-collapse fixed-table">
-                            <thead class="bg-slate-50 border-b border-slate-200">
+                            <thead class="bg-slate-100 border-b border-slate-200">
                                 <tr>
                                     <th class="w-[15%] px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ticket</th>
                                     <th class="w-[20%] px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Epic</th>
@@ -98,29 +98,37 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
+        // Analyse de l'URL actuelle
         const urlObj = new URL(window.location.href);
         const params = urlObj.searchParams;
         
         const ADMIN_PASSWORD = "admin123"; 
         let isAdmin = false;
-        let adminValidated = false; // Verrou pour éviter la double demande
 
+        // Fonction unique de validation (Top-level)
         function validateAdminAccess() {
-            if (adminValidated) return true;
+            // Si déjà validé dans cette session, on passe
+            if (sessionStorage.getItem('is_admin_authenticated') === 'true') {
+                isAdmin = true;
+                return true;
+            }
+
             const entry = prompt("Accès restreint. Veuillez saisir le mot de passe équipe :");
             if (entry === ADMIN_PASSWORD) {
-                adminValidated = true;
+                sessionStorage.setItem('is_admin_authenticated', 'true');
                 isAdmin = true;
                 return true;
             } else {
-                alert("Mot de passe incorrect.");
-                // Nettoyage propre de l'URL
-                urlObj.searchParams.delete('view');
-                window.location.href = urlObj.pathname + urlObj.search;
+                if (entry !== null) alert("Mot de passe incorrect.");
+                // Nettoyage de l'URL pour revenir en mode vote proprement
+                const cleanUrl = new URL(window.location.href);
+                cleanUrl.searchParams.delete('view');
+                window.location.href = cleanUrl.pathname + cleanUrl.search;
                 return false;
             }
         }
 
+        // Vérification automatique au chargement si le paramètre est présent
         if (params.get('view') === 'results') {
             validateAdminAccess();
         }
@@ -173,15 +181,18 @@
                 document.getElementById('th-action').innerText = "Votes";
                 trigger.innerText = "↩ Revenir au mode vote";
                 trigger.onclick = () => {
-                    urlObj.searchParams.delete('view');
-                    window.location.href = urlObj.pathname + urlObj.search;
+                    const returnUrl = new URL(window.location.href);
+                    returnUrl.searchParams.delete('view');
+                    // On ne vide pas le sessionStorage pour pouvoir revenir en admin sans mot de passe durant la session
+                    window.location.href = returnUrl.pathname + returnUrl.search;
                 };
             } else {
                 trigger.onclick = () => {
-                    if (validateAdminAccess()) {
-                        urlObj.searchParams.set('view', 'results');
-                        window.location.href = urlObj.pathname + urlObj.search;
-                    }
+                    // Au clic, on se contente de recharger avec le paramètre. 
+                    // La fonction de validation au top du script prendra le relais.
+                    const targetUrl = new URL(window.location.href);
+                    targetUrl.searchParams.set('view', 'results');
+                    window.location.href = targetUrl.pathname + targetUrl.search;
                 };
             }
         }
@@ -197,7 +208,6 @@
                 if (snap.exists()) {
                     await updateDoc(voteRef, { count: increment(1), lastUpdated: new Date().toISOString() });
                 } else {
-                    // Fallback si l'init n'est pas passé
                     await setDoc(voteRef, { ticket: tid, summary: "N/A", epic: "N/A", sprint: sprintName, count: 1, lastUpdated: new Date().toISOString() });
                 }
                 markAsVoted(tid, sprintName);
@@ -281,7 +291,7 @@
                 });
 
                 sortedDomains.forEach(domain => {
-                    html += `<tr class="domain-header"><td colspan="4" class="px-6 py-2 text-[11px] font-black text-slate-600 uppercase tracking-wider border-y border-slate-200">${domain}</td></tr>`;
+                    html += `<tr class="domain-header"><td colspan="4" class="px-6 py-2 text-[11px] font-black text-slate-600 uppercase tracking-wider border-y border-slate-200 italic">${domain}</td></tr>`;
                     html += grouped[domain].sort((a,b) => a.ticket.localeCompare(b.ticket, undefined, { numeric: true })).map(renderRow).join('');
                 });
             }
@@ -299,7 +309,7 @@
 
             return `
             <tr class="${voted && !isAdmin ? 'bg-green-50/30' : 'hover:bg-slate-50/50'} transition-colors">
-                <td class="px-6 py-6 text-[13px] font-bold text-blue-600 font-mono tracking-tighter border-r border-slate-50">${i.ticket}</td>
+                <td class="px-6 py-6 text-[13px] font-bold text-blue-600 font-mono tracking-tighter">${i.ticket}</td>
                 <td class="px-6 py-6 text-[13px] text-slate-500 italic">${i.epic || 'Sans Epic'}</td>
                 <td class="px-6 py-6 text-sm text-slate-700 font-medium leading-relaxed">${i.summary || 'N/A'}</td>
                 <td class="px-6 py-6 text-center">${actionContent}</td>
