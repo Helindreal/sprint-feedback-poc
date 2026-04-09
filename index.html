@@ -105,9 +105,7 @@
         const ADMIN_PASSWORD = "admin123"; 
         let isAdmin = false;
 
-        // Fonction unique de validation (Top-level)
         function validateAdminAccess() {
-            // Si déjà validé dans cette session, on passe
             if (sessionStorage.getItem('is_admin_authenticated') === 'true') {
                 isAdmin = true;
                 return true;
@@ -120,7 +118,6 @@
                 return true;
             } else {
                 if (entry !== null) alert("Mot de passe incorrect.");
-                // Nettoyage de l'URL pour revenir en mode vote proprement
                 const cleanUrl = new URL(window.location.href);
                 cleanUrl.searchParams.delete('view');
                 window.location.href = cleanUrl.pathname + cleanUrl.search;
@@ -128,7 +125,6 @@
             }
         }
 
-        // Vérification automatique au chargement si le paramètre est présent
         if (params.get('view') === 'results') {
             validateAdminAccess();
         }
@@ -159,12 +155,26 @@
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         setupUI();
-                        if (ticketIdFromUrl && !autoVoted && !hasVoted(ticketIdFromUrl, currentSprint)) {
+                        
+                        // --- TRAITEMENT DU VOTE ET NETTOYAGE URL ---
+                        if (ticketIdFromUrl && !autoVoted) {
                             autoVoted = true;
-                            await castVote(ticketIdFromUrl);
-                        } else if (ticketIdFromUrl) {
-                            showSuccess(ticketIdFromUrl);
+                            const sprintForVote = currentSprint || "Sprint Inconnu";
+                            
+                            if (!hasVoted(ticketIdFromUrl, sprintForVote)) {
+                                await castVote(ticketIdFromUrl);
+                            } else {
+                                showSuccess(ticketIdFromUrl);
+                            }
+
+                            // Suppression immédiate du paramètre 'ticket' de la barre d'adresse sans recharger
+                            const cleanUrl = new URL(window.location.href);
+                            cleanUrl.searchParams.delete('ticket');
+                            // Nettoyage optionnel du paramètre 'summary' s'il reste des reliquats d'anciennes URLs
+                            cleanUrl.searchParams.delete('summary'); 
+                            window.history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.search);
                         }
+
                         handleDashboard();
                         document.getElementById('app-container').classList.remove('opacity-0');
                     }
@@ -183,13 +193,10 @@
                 trigger.onclick = () => {
                     const returnUrl = new URL(window.location.href);
                     returnUrl.searchParams.delete('view');
-                    // On ne vide pas le sessionStorage pour pouvoir revenir en admin sans mot de passe durant la session
                     window.location.href = returnUrl.pathname + returnUrl.search;
                 };
             } else {
                 trigger.onclick = () => {
-                    // Au clic, on se contente de recharger avec le paramètre. 
-                    // La fonction de validation au top du script prendra le relais.
                     const targetUrl = new URL(window.location.href);
                     targetUrl.searchParams.set('view', 'results');
                     window.location.href = targetUrl.pathname + targetUrl.search;
