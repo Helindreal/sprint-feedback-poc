@@ -299,7 +299,7 @@
 
                 sortedDomains.forEach(domain => {
                     html += `<tr class="domain-header"><td colspan="4" class="px-6 py-2 text-[11px] font-black text-slate-600 uppercase tracking-wider border-y border-slate-200 italic">${domain}</td></tr>`;
-                    html += grouped[domain].sort((a,b) => a.ticket.localeCompare(b.ticket, undefined, { numeric: true })).map(renderRow).join('');
+                    html += grouped[domain].sort((a,b) => (a.ticket || "").localeCompare(b.ticket || "", undefined, { numeric: true })).map(renderRow).join('');
                 });
             }
             tbody.innerHTML = html;
