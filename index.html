@@ -144,8 +144,20 @@
         };
         const hasVoted = (tid, spr) => !!getVotedTickets()[`${tid}||${spr}`];
         
-        const extractDomain = (summary) => {
-            const match = summary.match(/^\[(.*?)\]/);
+        const extractDomain = (epic, summary) => {
+            const regex = /\[(.*?)\]/; // On enlève le ^ pour trouver un tag n'importe où
+            let match = null;
+            
+            // 1. On cherche d'abord dans l'Epic (s'il existe)
+            if (epic && epic !== 'N/A' && epic !== 'Sans Epic') {
+                match = epic.match(regex);
+            }
+            
+            // 2. S'il n'y a rien dans l'Epic, on cherche dans le Ticket
+            if (!match && summary) {
+                match = summary.match(regex);
+            }
+            
             return match ? match[1] : "Autres Domaines";
         };
 
@@ -287,7 +299,7 @@
             } else {
                 const grouped = {};
                 filtered.forEach(item => {
-                    const domain = extractDomain(item.summary || "");
+                    const domain = extractDomain(item.epic, item.summary);
                     if (!grouped[domain]) grouped[domain] = [];
                     grouped[domain].push(item);
                 });
