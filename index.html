@@ -242,6 +242,7 @@
                 const foundSprints = new Set();
                 snap.forEach(d => {
                     const data = d.data();
+                    data.ticket = d.id;
                     allData.push(data);
                     if (data.sprint) foundSprints.add(data.sprint);
                 });
