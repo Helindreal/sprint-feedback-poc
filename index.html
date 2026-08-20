@@ -269,7 +269,7 @@
             const tbody = document.getElementById('votes-body');
             const noVotes = document.getElementById('no-votes');
             const tableWrapper = document.getElementById('table-wrapper');
-            let filtered = allData.filter(v => v.sprint === currentSprint);
+            let filtered = allData.filter(v => v.sprint === currentSprint && v.ticket && v.ticket !== "undefined");
             
             if (filtered.length === 0) {
                 noVotes.classList.remove('hidden');
